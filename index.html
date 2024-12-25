@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooting Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(to bottom, #000, #001f3f);
+            border: 2px solid white;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-button {
+            width: 50px;
+            height: 50px;
+            background: #555;
+            color: white;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .control-button:active {
+            background: #333;
+        }
+
+        #gameOverScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            display: none;
+            border: 2px solid white;
+            border-radius: 10px;
+        }
+
+        #retryButton {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #retryButton:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="controls">
+        <button id="leftButton" class="control-button">⬅</button>
+        <button id="shootButton" class="control-button">🔫</button>
+        <button id="rightButton" class="control-button">➡</button>
+    </div>
+    <div id="gameOverScreen">
+        <h1>Game Over</h1>
+        <p>Your Score: <span id="finalScore">0</span></p>
+        <button id="retryButton">Retry</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const spaceship = {
+            x: canvas.width / 2 - 20,
+            y: canvas.height - 60,
+            width: 40,
+            height: 40,
+            speed: 5,
+            movingLeft: false,
+            movingRight: false,
+        };
+
+        const bullets = [];
+        const enemies = [];
+        const enemySpawnRate = 60;
+        let frames = 0;
+        let score = 0;
+        let gameOver = false;
+
+        const gameOverScreen = document.getElementById("gameOverScreen");
+        const finalScore = document.getElementById("finalScore");
+        const retryButton = document.getElementById("retryButton");
+
+        function drawSpaceship() {
+            ctx.fillStyle = "#00ff00";
+            ctx.fillRect(spaceship.x, spaceship.y, spaceship.width, spaceship.height);
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = "#ffff00";
+            bullets.forEach((bullet, index) => {
+                bullet.y -= bullet.speed;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                if (bullet.y + bullet.height < 0) bullets.splice(index, 1);
+            });
+        }
+
+        function drawEnemies() {
+            ctx.fillStyle = "#ff0000";
+            enemies.forEach((enemy, index) => {
+                enemy.y += enemy.speed;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+                if (enemy.y > canvas.height) triggerGameOver();
+            });
+        }
+
+        function spawnEnemy() {
+            if (frames % enemySpawnRate === 0) {
+                const size = Math.random() * 30 + 20;
+                const x = Math.random() * (canvas.width - size);
+                enemies.push({ x, y: 0, width: size, height: size, speed: 2 });
+            }
+        }
+
+        function detectCollisions() {
+            bullets.forEach((bullet, bIndex) => {
+                enemies.forEach((enemy, eIndex) => {
+                    if (
+                        bullet.x < enemy.x + enemy.width &&
+                        bullet.x + bullet.width > enemy.x &&
+                        bullet.y < enemy.y + enemy.height &&
+                        bullet.y + bullet.height > enemy.y
+                    ) {
+                        bullets.splice(bIndex, 1);
+                        enemies.splice(eIndex, 1);
+                        score += 10;
+                    }
+                });
+            });
+
+            enemies.forEach((enemy) => {
+                if (
+                    spaceship.x < enemy.x + enemy.width &&
+                    spaceship.x + spaceship.width > enemy.x &&
+                    spaceship.y < enemy.y + enemy.height &&
+                    spaceship.y + spaceship.height > enemy.y
+                ) {
+                    triggerGameOver();
+                }
+            });
+        }
+
+        function drawScore() {
+            ctx.font = "20px Arial";
+            ctx.fillText(`Score: ${score}`, 10, 20);
+        }
+
+        function triggerGameOver() {
+            gameOver = true;
+            finalScore.textContent = score;
+            gameOverScreen.style.display = "block";
+        }
+
+        function resetGame() {
+            gameOver = false;
+            score = 0;
+            frames = 0;
+            bullets.length = 0;
+            enemies.length = 0;
+            spaceship.x = canvas.width / 2 - 20;
+            gameOverScreen.style.display = "none";
+            gameLoop();
+        }
+
+        function gameLoop() {
+            if (gameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawSpaceship();
+            drawBullets();
+            drawEnemies();
+            spawnEnemy();
+            detectCollisions();
+            drawScore();
+
+            if (spaceship.movingLeft && spaceship.x > 0) spaceship.x -= spaceship.speed;
+            if (spaceship.movingRight && spaceship.x + spaceship.width < canvas.width) spaceship.x += spaceship.speed;
+
+            frames++;
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") spaceship.movingLeft = true;
+            if (e.key === "ArrowRight") spaceship.movingRight = true;
+            if (e.key === " " || e.key === "Spacebar") {
+                bullets.push({
+                    x: spaceship.x + spaceship.width / 2 - 2.5,
+                    y: spaceship.y,
+                    width: 5,
+                    height: 10,
+                    speed: 7,
+                });
+            }
+        });
+
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowLeft") spaceship.movingLeft = false;
+            if (e.key === "ArrowRight") spaceship.movingRight = false;
+        });
+
+        document.getElementById("leftButton").addEventListener("mousedown", () => spaceship.movingLeft = true);
+        document.getElementById("leftButton").addEventListener("mouseup", () => spaceship.movingLeft = false);
+        document.getElementById("rightButton").addEventListener("mousedown", () => spaceship.movingRight = true);
+        document.getElementById("rightButton").addEventListener("mouseup", () => spaceship.movingRight = false);
+        document.getElementById("shootButton").addEventListener("mousedown", () => {
+            bullets.push({
+                x: spaceship.x + spaceship.width / 2 - 2.5,
+                y: spaceship.y,
+                width: 5,
+                height: 10,
+                speed: 7,
+            });
+        });
+
+        retryButton.addEventListener("click", resetGame);
+
+        gameLoop();
+    </script>
+</body>
+</html>
